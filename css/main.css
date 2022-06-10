@@ -1,0 +1,243 @@
+body {
+	padding: 0;
+	margin: 0;
+	color: #001A49;
+	font-size: 16px;
+	font-family: 'Montserrat', sans-serif;
+	font-weight: bold 700;
+	letter-spacing: 0.03em;
+	line-height: 1.25em;
+}
+
+.p {
+	letter-spacing: 0.03em;
+	line-height: 1.25em;
+}
+
+h1, h2, h3, h4, h5, h6{
+	font-weight: 700;
+	padding: 0;
+	margin: 0;
+}
+
+ul, li {
+	display: block;
+	padding: 0;
+	margin: 0;
+}
+
+.container {
+	width: 1200px;
+	margin:0 auto; /*позиционировние по центру */
+}
+
+.nav {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+header a {
+	color: #001A49;
+}
+
+.menu {
+	display: flex;
+}
+
+.menu li a {
+	text-transform: uppercase;
+	text-decoration: none;
+	font-size: 13px;
+}
+
+.menu {
+	margin-right: 62px;
+}
+
+.menu li a {
+	margin-right: 40px;
+}
+
+.header {
+	padding-top: 23px;
+	padding-bottom: 84px;
+}
+
+.offer{
+    
+}
+
+.offer-title {
+	width: 426px;
+    height: 136px;
+    left: 0px;
+    top: -252px;
+    font-weight: 700;
+    font-size: 50px;
+    line-height: 68px;
+}
+
+.desc {
+	font-size: 20px;
+	font-family: Mulish;
+	margin-bottom: 50px;
+}
+
+.btn {
+	color: #FFFFFF;
+	background: linear-gradient(44.11deg, #02BAD3 15.75%, #02BAD3 84.63%);
+	font-size: 20px;
+	padding: 25px 25px;
+	text-decoration: none;
+	box-shadow: 0px 4px 19px #71F2FF;
+    border-radius: 33px;
+    font-weight: 700;
+    display: block;
+    width: 147px;
+    text-align: center;
+}
+
+.logotip {
+	position: absolute;
+    width: 636px;
+    height: 423px;
+    left: 780px;
+    top: 100px;
+}
+
+
+.lll {
+	position: absolute;
+width: 598px;
+height: 112px;
+left: 395px;
+top: 843px;
+font-weight: 700;
+font-size: 46px;
+line-height: 56px;
+}
+
+.asd {
+	position: absolute;
+width: 1130px;
+height: 805px;
+left: 314px;
+top: 983px;
+}
+
+.qqq {
+	position: absolute;
+width: 200px;
+height: 288px;
+left: -89px;
+top: 1190px;
+}
+
+.qtt {
+	position: absolute;
+width: 1288px;
+height: 450px;
+left: 0px;
+top: 2000px;
+
+}
+
+.uwu {
+	font-family: 'Montserrat';
+font-style: normal;
+font-weight: 700;
+font-size: 46px;
+line-height: 56px;
+position: absolute;
+left: 130px;
+top: 2130px;
+width: 596px;
+height: 191px;
+}
+
+.ooo {
+font-family: 'Mulish';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 30px;
+position: absolute;
+left: 130px;
+top: 2290px;
+width: 222px;
+height: 30px;
+}
+
+.ooi {
+font-family: 'Mulish';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 30px;
+position: absolute;
+left: 130px;
+top: 2320px;
+width: 227px;
+height: 30px;
+}
+
+.oou {
+font-family: 'Mulish';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 30px;
+position: absolute;
+left: 130px;
+top: 2350px;
+width: 220px;
+height: 30px;
+}
+
+.zzz {
+	position: absolute;
+width: 1599px;
+height: 250px;
+left: 0px;
+top: 2669px;
+}
+
+.xxx {
+	font-family: 'Montserrat';
+font-style: normal;
+font-weight: 700;
+font-size: 48px;
+line-height: 24px;
+position: absolute;
+left: 646px;
+top: 2700px;
+width: 316px;
+height: 56x;
+}
+
+.inst {
+	font-family: 'Mulish';
+font-style: normal;
+font-weight: 400;
+font-size: 24px;
+line-height: 24px;
+position: absolute;
+left: 660px;
+top: 2780px;
+width: 271px;
+height: 24px;
+}
+
+.phone {
+	font-family: 'Mulish';
+font-style: normal;
+font-weight: 400;
+font-size: 24px;
+line-height: 24px;
+position: absolute;
+left: 683px;
+top: 2830px;
+width: 271px;
+height: 24px;
+}
