@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Sarqyt demo</title>
+<style>
+:root{--g:#0F6B4F;--g2:#1E8F63;--mint:#BDEBD3;--cream:#FFF7EA;--ink:#17322A;--orange:#F28C38;--red:#E5484D}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#000;font-family:Inter,'DejaVu Sans',sans-serif;color:var(--ink)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:var(--cream)}
+.scene{position:absolute;inset:0;overflow:hidden;opacity:0}
+.abs{position:absolute}
+svg{position:absolute;left:0;top:0}
+#sub{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);max-width:1500px;padding:14px 30px;border-radius:16px;
+ background:rgba(12,28,22,.78);color:#fff;font-size:38px;font-weight:500;line-height:1.3;text-align:center;z-index:100;letter-spacing:.2px}
+#sub.left{left:110px;transform:none;max-width:860px;text-align:left;font-size:34px}
+#sub:empty{display:none}
+.phone{position:absolute;border-radius:64px;background:#0d0f10;padding:16px;box-shadow:0 40px 80px rgba(0,0,0,.35),0 0 0 3px #2b2f33 inset}
+.phone .scr{position:relative;width:100%;height:100%;border-radius:50px;overflow:hidden;background:#fff}
+.phone .scr img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.kicker{font-size:28px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--mint)}
+.title{font-size:76px;font-weight:800;line-height:1.05;color:#fff;margin-top:14px}
+.subt{font-size:36px;font-weight:500;color:#E6F6EE;margin-top:22px;line-height:1.3}
+.pill{display:inline-block;padding:12px 26px;border-radius:999px;background:#fff;color:var(--g);font-weight:700;font-size:30px}
+.card{position:absolute;background:#fff;border-radius:28px;box-shadow:0 18px 40px rgba(16,50,40,.14)}
+.green-bg{background:radial-gradient(1200px 800px at 20% 10%,#1F8A62 0%,#0E5A43 55%,#0A4433 100%)}
+.ornament{position:absolute;inset:0;opacity:.08;background-image:radial-gradient(circle at 20px 20px,#fff 2px,transparent 3px);background-size:60px 60px}
+.chip{display:flex;align-items:center;gap:18px;font-size:32px;font-weight:600;color:#fff;margin-top:22px;opacity:.35}
+.chip b{display:inline-flex;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.15);align-items:center;justify-content:center;font-size:26px}
+.chip.on{opacity:1}.chip.on b{background:#fff;color:var(--g)}
+</style></head>
+<body><div id="stage"><div id="sub"></div></div>
+<script src="timeline.js"></script>
+<script>
+// ---------- helpers ----------
+const W=1920,H=1080, stage=document.getElementById('stage');
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3);
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const back=x=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const pad=n=>String(n).padStart(5,'0');
+const fmt=n=>Math.round(n).toLocaleString('ru-RU').replace(/ /g,' ');
+function el(tag,attrs={},parent){const e=document.createElement(tag);for(const k in attrs){if(k==='html')e.innerHTML=attrs[k];else if(k==='style')e.style.cssText=attrs[k];else e.setAttribute(k,attrs[k]);}if(parent)parent.appendChild(e);return e;}
+function svgEl(parent,w=W,h=H,inner=''){const d=document.createElement('div');d.innerHTML=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;const s=d.firstChild;parent.appendChild(s);return s;}
+const q=(root,sel)=>root.querySelector(sel);
+function show(e,o,tx=0,ty=0,s=1){e.style.opacity=o;e.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;}
+function pop(e,p,dy=40){const k=eo(p);show(e,k,0,(1-k)*dy,lerp(.96,1,k));}
+let PEND=[];
+function setImg(img,src){if(img.dataset.src===src)return;img.dataset.src=src;img.src=src;PEND.push(img.decode().catch(()=>{}));}
+
+// ---------- shared art ----------
+function skyDefs(id){return `<defs>
+<linearGradient id="sky${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FC6E6"/><stop offset=".55" stop-color="#FBE3BC"/><stop offset="1" stop-color="#FFD29A"/></linearGradient>
+<radialGradient id="sun${id}"><stop offset="0" stop-color="#FFF4C8"/><stop offset=".45" stop-color="#FFE29A" stop-opacity=".9"/><stop offset="1" stop-color="#FFE29A" stop-opacity="0"/></radialGradient></defs>`;}
+function mountains(w,y,color,snow,seed){
+  // deterministic jagged range
+  let pts=[[0,y+160]],x=0,s=seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
+  const peaks=[];
+  while(x<w){const px=x+120+rnd()*160, py=y-rnd()*170; pts.push([px,py]);peaks.push([px,py]);x=px+120+rnd()*150;pts.push([x,y+60+rnd()*60]);}
+  pts.push([w,y+160],[w,y+400],[0,y+400]);
+  let d='M'+pts.map(p=>p.join(',')).join(' L')+'Z';
+  let sn=peaks.map(([px,py])=>{const h=46;return `M${px},${py} L${px-38},${py+h} L${px-14},${py+h-10} L${px},${py+h+4} L${px+16},${py+h-8} L${px+36},${py+h}Z`}).join('');
+  return `<path d="${d}" fill="${color}"/><path d="${sn}" fill="${snow}"/>`;
+}
+function buildings(x0,w,base,seed,palette,minH=120,maxH=330,win='#FFF3DC'){
+  let s=seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};let out='',x=x0;
+  while(x<x0+w){const bw=90+rnd()*120,bh=minH+rnd()*(maxH-minH),c=palette[Math.floor(rnd()*palette.length)];
+    out+=`<rect x="${x}" y="${base-bh}" width="${bw}" height="${bh}" fill="${c}" rx="4"/>`;
+    for(let wy=base-bh+22;wy<base-30;wy+=38)for(let wx=x+16;wx<x+bw-24;wx+=30)out+=`<rect x="${wx}" y="${wy}" width="14" height="20" rx="2" fill="${win}" opacity="${.55+rnd()*.4}"/>`;
+    x+=bw+6+rnd()*10;}
+  return out;}
+function tree(x,y,s=1,c='#5FA873'){return `<g transform="translate(${x},${y}) scale(${s})"><rect x="-7" y="-70" width="14" height="70" fill="#7A5638"/><circle cx="0" cy="-100" r="52" fill="${c}"/><circle cx="-34" cy="-78" r="34" fill="${c}"/><circle cx="34" cy="-80" r="36" fill="${c}"/></g>`;}
+function cityBG(id,{w=W,ground=860,sunX=1480}={}){
+  return skyDefs(id)+`<rect width="${w}" height="${H}" fill="url(#sky${id})"/>
+  <circle cx="${sunX}" cy="250" r="230" fill="url(#sun${id})"/><circle cx="${sunX}" cy="250" r="74" fill="#FFF0B8"/>
+  <g opacity=".95">${mountains(w,430,'#A6B3D8','#FFFFFF',7)}</g>
+  <g>${mountains(w,520,'#8293C4','#F3F6FF',19)}</g>
+  <g>${buildings(-20,w+40,ground-40,3,['#E8CDB0','#DDBB98','#CFA889','#E9D6BF'],140,360)}</g>
+  <rect x="0" y="${ground-40}" width="${w}" height="${H}" fill="#D9CBB6"/>`;
+}
+// Arman: front-ish flat character, feet at (0,0)
+function armanSVG(id){return `<g id="${id}">
+ <g class="legL"><rect x="-30" y="-118" width="26" height="114" rx="12" fill="#2B3A55"/><ellipse cx="-20" cy="-2" rx="22" ry="11" fill="#1d1f24"/></g>
+ <g class="legR"><rect x="4" y="-118" width="26" height="114" rx="12" fill="#2B3A55"/><ellipse cx="20" cy="-2" rx="22" ry="11" fill="#1d1f24"/></g>
+ <g class="armL"><rect x="-62" y="-250" width="24" height="122" rx="12" fill="#E07A2A"/><circle cx="-50" cy="-126" r="13" fill="#E3AC80"/></g>
+ <rect x="-48" y="-262" width="96" height="156" rx="30" fill="#F28C38"/>
+ <path d="M-20,-262 Q0,-232 20,-262" fill="none" stroke="#C9661F" stroke-width="5"/>
+ <rect x="-36" y="-262" width="9" height="120" rx="4" fill="#2F6E58"/><rect x="27" y="-262" width="9" height="120" rx="4" fill="#2F6E58"/>
+ <g class="belly" opacity="0"><path d="M-74,-170 q-12,-10 0,-20 q12,-10 0,-20" stroke="#8B5E3C" stroke-width="5" fill="none"/><path d="M74,-170 q12,-10 0,-20 q-12,-10 0,-20" stroke="#8B5E3C" stroke-width="5" fill="none"/></g>
+ <g class="armR"><rect x="38" y="-250" width="24" height="122" rx="12" fill="#E07A2A"/><circle cx="50" cy="-126" r="13" fill="#E3AC80"/></g>
+ <rect x="-10" y="-282" width="20" height="24" fill="#E3AC80"/>
+ <g class="head"><circle cx="0" cy="-318" r="44" fill="#E9B48A"/>
+  <path d="M-46,-322 Q-48,-372 0,-372 Q46,-372 46,-322 Q30,-346 0,-344 Q-26,-346 -46,-322Z" fill="#2A1E1A"/>
+  <circle cx="-44" cy="-314" r="9" fill="#E3AC80"/><circle cx="44" cy="-314" r="9" fill="#E3AC80"/>
+  <g class="brows"><rect x="-26" y="-334" width="16" height="4" rx="2" fill="#2A1E1A"/><rect x="10" y="-334" width="16" height="4" rx="2" fill="#2A1E1A"/></g>
+  <circle cx="-17" cy="-318" r="5" fill="#2A1E1A"/><circle cx="17" cy="-318" r="5" fill="#2A1E1A"/>
+  <path class="mouth" d="M-14,-294 Q0,-284 14,-294" stroke="#7A3E2A" stroke-width="5" fill="none" stroke-linecap="round"/>
+ </g></g>`;}
+const MOUTH={smile:'M-15,-296 Q0,-280 15,-296',neutral:'M-12,-292 L12,-292',frown:'M-13,-286 Q0,-298 13,-286',open:'M-14,-298 Q0,-276 14,-298 Z'};
+function arman(root,id){const g=q(root,'#'+id);return{g,
+  pose({x,y,s=1,walk=null,mood='neutral',flip=1,arm=0,brow=0,belly=0}){
+    g.setAttribute('transform',`translate(${x},${y}) scale(${s*flip},${s})`);
+    let a=0,b=0;if(walk!==null){a=Math.sin(walk*Math.PI*2)*20;b=Math.abs(Math.cos(walk*Math.PI*2))*6;}
+    q(g,'.legL').setAttribute('transform',`rotate(${a} -17 -118)`);q(g,'.legR').setAttribute('transform',`rotate(${-a} 17 -118)`);
+    q(g,'.armL').setAttribute('transform',`rotate(${-a*.8} -50 -244)`);q(g,'.armR').setAttribute('transform',`rotate(${a*.8+arm} 50 -244)`);
+    q(g,'.head').setAttribute('transform',`translate(0,${-b})`);
+    q(g,'.mouth').setAttribute('d',MOUTH[mood]);q(g,'.mouth').setAttribute('fill',mood==='open'?'#7A3E2A':'none');
+    q(g,'.brows').setAttribute('transform',`translate(0,${brow})`);q(g,'.belly').setAttribute('opacity',belly);
+  }};}
+function croissant(x,y,s=1,c='#E2A04A'){const seg=[[-44,6,-62,13,17],[-25,-14,-32,18,23],[0,-22,0,22,27],[25,-14,32,18,23],[44,6,62,13,17]];
+  return `<g transform="translate(${x},${y}) scale(${s})">${seg.map(([cx,cy,r,rx,ry])=>`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${cx} ${cy})" fill="${c}" stroke="#B9772C" stroke-width="3"/>`).join('')}<path d="M-14,-30 q-3,10 0,18 M14,-30 q3,10 0,18" stroke="#F3C27A" stroke-width="4" fill="none" stroke-linecap="round"/></g>`;}
+function donut(x,y,s=1,ic='#F6A5C0'){return `<g transform="translate(${x},${y}) scale(${s})"><circle r="40" fill="#D9984F"/><path d="M-36,-6 Q-30,-36 0,-38 Q32,-36 37,-4 Q30,8 20,2 Q8,12 -4,4 Q-18,12 -28,4Z" fill="${ic}"/><circle r="13" fill="#FFF7EA"/><g stroke="#fff" stroke-width="4" stroke-linecap="round"><path d="M-20,-22 l6,3"/><path d="M8,-28 l5,-3"/><path d="M22,-12 l4,4"/></g></g>`;}
+function qrSVG(x,y,size){let s=11,o='',r=7;const cell=size/21;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
+  for(let i=0;i<21;i++)for(let j=0;j<21;j++){const f=(i<7&&j<7)||(i<7&&j>13)||(i>13&&j<7);if(f)continue;if(rnd()>.52)o+=`<rect x="${x+i*cell}" y="${y+j*cell}" width="${cell}" height="${cell}"/>`;}
+  const fp=(fx,fy)=>`<rect x="${x+fx*cell}" y="${y+fy*cell}" width="${7*cell}" height="${7*cell}"/><rect x="${x+(fx+1)*cell}" y="${y+(fy+1)*cell}" width="${5*cell}" height="${5*cell}" fill="#fff"/><rect x="${x+(fx+2)*cell}" y="${y+(fy+2)*cell}" width="${3*cell}" height="${3*cell}"/>`;
+  return `<g fill="#111">${o}${fp(0,0)}${fp(14,0)}${fp(0,14)}</g>`;}
+function makePhone(parent,{h=900,x=0,y=0}){const w=Math.round((h-32)*1290/2796)+32;const p=el('div',{class:'phone',style:`width:${w}px;height:${h}px;left:${x}px;top:${y}px`},parent);
+  const scr=el('div',{class:'scr'},p);const img=el('img',{},scr);return{el:p,scr,img,w,h};}
+function playClip(ph,name,n,lt,dur,{start=0,minSpeed=.6,maxSpeed=2.2}={}){
+  const avail=Math.max(.1,dur-start);let sp=clamp(n/(avail*30),minSpeed,maxSpeed);
+  const f=clamp(Math.floor((lt-start)*30*sp),0,n-1);setImg(ph.img,`clips/${name}/${pad(f+1)}.jpg`);return f;}
+function greenPanel(sc,{kicker,title,sub,chips=[]}){
+  sc.el.classList.add('green-bg');el('div',{class:'ornament'},sc.el);
+  const box=el('div',{class:'abs',style:'left:110px;top:150px;width:860px'},sc.el);
+  const k=el('div',{class:'kicker',html:kicker},box),t=el('div',{class:'title',html:title},box),s=el('div',{class:'subt',html:sub},box);
+  const cs=chips.map((c,i)=>el('div',{class:'chip',html:`<b>${i+1}</b>${c}`},box));return{k,t,s,cs,box};}
+
+// ---------- scenes ----------
+const SC={};
+SC.almaty={init(sc){
+  const s=svgEl(sc.el,W,H,`<g id="cam">${cityBG('a')}
+   <g transform="translate(120,0)"><rect x="80" y="420" width="640" height="420" fill="#F1E3CF"/><polygon points="60,430 400,300 740,430" fill="#C9A27E"/>
+    <rect x="70" y="420" width="660" height="26" fill="#B48C68"/>${[0,1,2,3,4,5].map(i=>`<rect x="${120+i*108}" y="470" width="34" height="330" fill="#FFFFFF" opacity=".9"/>`).join('')}
+    <rect x="330" y="640" width="140" height="200" rx="8" fill="#6B4A33"/><rect x="398" y="640" width="4" height="200" fill="#4c3322"/>
+    <rect x="250" y="360" width="300" height="44" rx="8" fill="#0F6B4F"/><text x="400" y="391" text-anchor="middle" font-size="26" font-weight="700" fill="#fff" letter-spacing="3">УНИВЕРСИТЕТ</text></g>
+   ${tree(1040,860,1.1)}${tree(1700,860,1.25,'#4E9966')}${tree(60,860,1.2,'#4E9966')}
+   <rect x="0" y="900" width="${W}" height="180" fill="#C8B9A2"/>
+   ${armanSVG('arm')}</g>`);
+  sc.cam=q(s,'#cam');sc.a=arman(s,'arm');
+  sc.lbl=el('div',{class:'abs',style:'left:90px;top:80px',html:`<div class="pill" style="font-size:40px;padding:16px 34px;box-shadow:0 10px 30px rgba(0,0,0,.12)">Алматы, 14:30</div>`},sc.el);
+  sc.bub=el('div',{class:'abs',style:'left:0;top:0;font-size:44px;font-weight:800;color:#8B5E3C;font-style:italic',html:'урр-р-р…'},sc.el);
+},update(sc,t,d){
+  const z=lerp(1.12,1.0,eio(seg(t,0,d)));sc.cam.setAttribute('transform',`translate(${W/2},${H/2}) scale(${z}) translate(${-W/2+lerp(-40,30,t/d)},${-H/2})`);
+  pop(sc.lbl,seg(t,.3,1.1));
+  const wp=seg(t,1.6,d-.3);const x=lerp(520,980,wp);const growl=seg(t,d*.62,d*.7)*(1-seg(t,d-.4,d));
+  sc.a.pose({x,y:900,s:1.05,walk:wp>0&&wp<1?t*1.6:null,mood:growl>0?'frown':'neutral',belly:growl,brow:growl*3});
+  sc.a.g.style.opacity=seg(t,1.2,1.7);
+  sc.bub.style.left=(x*z+80)+'px';sc.bub.style.top='400px';sc.bub.style.opacity=growl;sc.bub.style.transform=`rotate(-6deg) scale(${.8+.2*growl})`;
+}};
+SC.street={init(sc){
+  const s=svgEl(sc.el,W,H,`${skyDefs('s')}<rect width="${W}" height="${H}" fill="url(#skys)"/>
+   <g id="far">${mountains(5200,470,'#A6B3D8','#fff',5)}</g>
+   <g id="mid">${buildings(0,5200,820,11,['#E8CDB0','#D7B08E','#EBD9C3','#C99F80'],260,520)}</g>
+   <rect x="0" y="820" width="${W}" height="260" fill="#CDBFAA"/><rect x="0" y="960" width="${W}" height="120" fill="#6E6A6A"/><g id="dash"></g>
+   <g id="near">${[0,1,2,3,4,5,6,7].map(i=>tree(200+i*620,840,1,i%2?'#5FA873':'#4E9966')).join('')}</g>
+   <g id="cafe"><rect x="0" y="380" width="620" height="450" fill="#F4EBDD"/><rect x="0" y="380" width="620" height="70" fill="#0F6B4F"/>
+     <text x="310" y="430" text-anchor="middle" font-size="46" font-weight="800" fill="#fff" letter-spacing="6">КАФЕ</text>
+     <path d="M0,450 h620 v34 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0 q-31,22 -62,0Z" fill="#F28C38"/>
+     <rect x="40" y="530" width="330" height="240" rx="10" fill="#BFE3F0"/>${croissant(120,700,1)}${croissant(230,690,.9)}${croissant(300,720,.8)}
+     <rect x="420" y="560" width="150" height="270" rx="6" fill="#6B4A33"/>
+     <g transform="translate(700,470)"><rect x="-8" y="0" width="16" height="360" fill="#555"/><circle cx="0" cy="-30" r="54" fill="#E5484D"/><text x="0" y="-8" text-anchor="middle" font-size="64" font-weight="900" fill="#fff">M</text></g></g>
+   <g id="scoot"><g transform="scale(-1,1)"><circle cx="-60" cy="0" r="22" fill="#222"/><circle cx="60" cy="0" r="22" fill="#222"/><rect x="-70" y="-14" width="140" height="12" rx="6" fill="#0F6B4F"/><rect x="52" y="-130" width="10" height="120" fill="#333"/><rect x="40" y="-134" width="40" height="8" rx="4" fill="#333"/>
+    <rect x="-12" y="-120" width="22" height="108" rx="10" fill="#334"/><rect x="-26" y="-210" width="50" height="96" rx="20" fill="#5B7FD1"/><circle cx="0" cy="-236" r="26" fill="#C98E64"/><path d="M-28,-240 Q0,-282 28,-240Z" fill="#E5484D"/></g></g>
+   <g id="smell" opacity="0"><path d="M0,0 q20,-30 0,-60 q-20,-30 0,-60" stroke="#C9A27E" stroke-width="6" fill="none" opacity=".8"/><path d="M40,10 q20,-30 0,-60 q-20,-30 0,-60" stroke="#C9A27E" stroke-width="6" fill="none" opacity=".6"/></g>
+   ${armanSVG('arm2')}`);
+  sc.s=s;sc.a=arman(s,'arm2');sc.far=q(s,'#far');sc.mid=q(s,'#mid');sc.near=q(s,'#near');sc.cafe=q(s,'#cafe');sc.scoot=q(s,'#scoot');sc.smell=q(s,'#smell');sc.dash=q(s,'#dash');
+  sc.dash.innerHTML=[...Array(30)].map((_,i)=>`<rect x="${i*160}" y="1016" width="80" height="10" fill="#fff" opacity=".7"/>`).join('');
+  sc.wal=el('div',{class:'card',style:'left:0;top:0;width:330px;padding:24px 28px;font-size:30px;font-weight:700',html:`<svg width="280" height="120" viewBox="0 0 280 120" style="position:static"><rect x="10" y="20" width="170" height="96" rx="16" fill="#8B5E3C"/><rect x="120" y="50" width="70" height="40" rx="10" fill="#6E4A2F"/><circle cx="215" cy="92" r="20" fill="#E8C35A"/><circle cx="246" cy="78" r="16" fill="#D9B24A"/><circle cx="232" cy="104" r="13" fill="#E8C35A"/></svg><div style="margin-top:6px">В кошельке — мелочь</div>`},sc.el);
+},update(sc,t,d){
+  const stop=seg(t,d*.62,d*.95);const v=lerp(1,0,eo(stop));const p=t*(1-stop*.5);
+  const travel=Math.min(t,d*.62)+ (t>d*.62? (d*.33)*eo(stop)*.5:0);
+  sc.far.setAttribute('transform',`translate(${-travel*20},0)`);sc.mid.setAttribute('transform',`translate(${-travel*90},0)`);
+  sc.near.setAttribute('transform',`translate(${-travel*240},0)`);sc.dash.setAttribute('transform',`translate(${-(travel*240)%160},0)`);
+  const cx=lerp(2100,1100,eo(seg(t,d*.45,d*.95)));sc.cafe.setAttribute('transform',`translate(${cx},0)`);
+  sc.smell.setAttribute('transform',`translate(${cx+200},520)`);sc.smell.setAttribute('opacity',seg(t,d*.7,d*.85)*.9);
+  const ax=lerp(760,960,eo(stop));
+  sc.a.pose({x:ax,y:940,s:1.05,walk:stop<.98?t*1.7:null,mood:'neutral'});
+  const wl=seg(t,.6,1.2)*(1-seg(t,3.0,3.5));pop(sc.wal,wl);sc.wal.style.left=(ax-420)+'px';sc.wal.style.top='300px';
+  const sx=lerp(2200,-300,seg(t,2.2,4.6));sc.scoot.setAttribute('transform',`translate(${sx},1010)`);
+}};
+SC.cafe={init(sc){
+  const shelf=y=>`<rect x="140" y="${y}" width="900" height="16" rx="6" fill="#B48C68"/>`;
+  let pastries='';for(let r=0;r<3;r++)for(let i=0;i<6;i++)pastries+=croissant(220+i*150,250+r*200,1.05);
+  const s=svgEl(sc.el,W,H,`<rect width="${W}" height="${H}" fill="#F6EBDC"/><rect x="0" y="880" width="${W}" height="200" fill="#D8C3A5"/>
+   <rect x="100" y="120" width="980" height="700" rx="24" fill="#CBE7F1"/><rect x="100" y="120" width="980" height="700" rx="24" fill="none" stroke="#6B4A33" stroke-width="18"/>
+   <g id="pst">${pastries}</g>${shelf(270)}${shelf(470)}${shelf(670)}
+   <path d="M150,140 L400,140 L180,620Z" fill="#fff" opacity=".18"/>
+   <g id="board" transform="translate(1180,140)"><rect width="640" height="520" rx="20" fill="#2E3B35"/><rect x="14" y="14" width="612" height="492" rx="14" fill="none" stroke="#B48C68" stroke-width="10"/>
+     <text x="320" y="96" text-anchor="middle" font-size="54" font-weight="800" fill="#F7F1E3" letter-spacing="8">МЕНЮ</text>
+     <text x="60" y="190" font-size="34" fill="#cfd8d2">Эспрессо ......... 1 200 ₸</text><text x="60" y="250" font-size="34" fill="#cfd8d2">Чизкейк ........... 2 400 ₸</text>
+     <g id="hl"><rect x="36" y="300" width="568" height="150" rx="16" fill="#F28C38" opacity=".95"/><text x="320" y="360" text-anchor="middle" font-size="40" font-weight="700" fill="#fff">Круассан + кофе</text>
+     <text id="price" x="320" y="430" text-anchor="middle" font-size="64" font-weight="900" fill="#fff">3 790 ₸</text></g></g>
+   <g id="stamp" opacity="0"><g transform="translate(590,470) rotate(-12)"><rect x="-300" y="-70" width="600" height="140" rx="16" fill="none" stroke="#E5484D" stroke-width="12"/><text x="0" y="28" text-anchor="middle" font-size="84" font-weight="900" fill="#E5484D" letter-spacing="10">СПИСАНИЕ</text></g></g>
+   <g id="clockw"><g id="clock" opacity="0" transform="translate(590,180)"><rect x="-200" y="-60" width="400" height="120" rx="60" fill="#fff"/><circle cx="-130" cy="0" r="36" fill="none" stroke="#17322A" stroke-width="7"/><path d="M-130,-22 v22 h16" stroke="#17322A" stroke-width="7" fill="none" stroke-linecap="round"/><text x="30" y="14" text-anchor="middle" font-size="40" font-weight="800" fill="#17322A">22:00</text></g></g>
+   ${armanSVG('arm3')}`);
+  sc.a=arman(s,'arm3');sc.pst=q(s,'#pst');sc.stamp=q(s,'#stamp');sc.hl=q(s,'#hl');sc.clock=q(s,'#clock');
+},update(sc,t,d){
+  const m=SCN.cafe.marks.writeoff;const pz=seg(t,.6,1.4);const pulse=1+.08*Math.sin(seg(t,1.4,3.4)*Math.PI*3)*(1-seg(t,3,3.4));
+  sc.hl.setAttribute('transform',`translate(320,375) scale(${lerp(.9,1.06,back(pz))*pulse}) translate(-320,-375)`);
+  sc.a.pose({x:lerp(1460,1420,seg(t,0,2)),y:1060,s:1.25,mood:t>1.5?'frown':'neutral',brow:t>1.5?4:0,flip:-1});
+  const w=seg(t,m,m+.8);sc.pst.style.filter=`grayscale(${w}) brightness(${1-w*.15})`;sc.clock.setAttribute('opacity',eo(w));
+  const st=seg(t,m+1.6,m+2.0);sc.stamp.setAttribute('opacity',st);sc.stamp.setAttribute('transform',`translate(590,470) scale(${lerp(1.6,1,eo(st))}) translate(-590,-470)`);
+}};
+SC.bench={init(sc){
+  const s=svgEl(sc.el,W,H,`${skyDefs('b')}<rect width="${W}" height="${H}" fill="url(#skyb)"/>${mountains(W,560,'#A6B3D8','#fff',23)}
+   <rect x="0" y="760" width="${W}" height="320" fill="#9CCB8E"/><path d="M0,900 Q600,820 1200,900 T2000,880 V1080 H0Z" fill="#E4D6BF"/>
+   ${tree(160,800,1.6,'#4E9966')}${tree(980,790,1.3)}${tree(1780,800,1.5,'#4E9966')}
+   <g transform="translate(250,0)"><rect x="40" y="700" width="420" height="22" rx="8" fill="#8B5E3C"/><rect x="40" y="640" width="420" height="20" rx="8" fill="#8B5E3C"/><rect x="40" y="600" width="420" height="20" rx="8" fill="#8B5E3C"/>
+   <rect x="70" y="720" width="16" height="120" fill="#555"/><rect x="414" y="720" width="16" height="120" fill="#555"/></g>
+   <g id="sit" transform="translate(500,700)">
+     <rect x="-30" y="-14" width="110" height="28" rx="14" fill="#2B3A55"/><rect x="58" y="-10" width="26" height="130" rx="12" fill="#2B3A55"/><ellipse cx="80" cy="122" rx="24" ry="11" fill="#1d1f24"/>
+     <rect x="-6" y="-14" width="100" height="28" rx="14" fill="#2B3A55"/><rect x="72" y="-10" width="26" height="130" rx="12" fill="#2B3A55"/><ellipse cx="96" cy="122" rx="24" ry="11" fill="#1d1f24"/>
+     <rect x="-48" y="-160" width="96" height="156" rx="30" fill="#F28C38"/><rect x="-10" y="-180" width="20" height="24" fill="#E3AC80"/>
+     <rect x="20" y="-140" width="24" height="90" rx="12" fill="#E07A2A" transform="rotate(-50 32 -140)"/><rect x="86" y="-118" width="34" height="58" rx="6" fill="#222"/>
+     <g><circle cx="0" cy="-216" r="44" fill="#E9B48A"/><path d="M-46,-220 Q-48,-270 0,-270 Q46,-270 46,-220 Q30,-244 0,-242 Q-26,-244 -46,-220Z" fill="#2A1E1A"/>
+     <circle cx="-4" cy="-212" r="5" fill="#2A1E1A"/><circle cx="26" cy="-212" r="5" fill="#2A1E1A"/><path id="bm" d="M-4,-192 Q10,-182 24,-192" stroke="#7A3E2A" stroke-width="5" fill="none" stroke-linecap="round"/></g></g>
+   <g id="bulb" opacity="0" transform="translate(510,380)"><g id="rays" stroke="#FFC23D" stroke-width="8" stroke-linecap="round"><path d="M0,-110 v-30"/><path d="M78,-78 l22,-22"/><path d="M-78,-78 l-22,-22"/><path d="M110,0 h30"/><path d="M-110,0 h-30"/></g>
+     <circle r="62" fill="#FFE27A"/><path d="M-24,40 h48 v34 h-48Z" fill="#B9B9B9"/><path d="M-20,-6 q20,26 40,0" stroke="#E0A520" stroke-width="6" fill="none"/></g>`);
+  sc.bulb=q(s,'#bulb');sc.bm=q(s,'#bm');
+  // phone with website mock
+  sc.ph=makePhone(sc.el,{h:880,x:1190,y:100});
+  sc.ph.scr.innerHTML=`<div style="position:absolute;inset:0;background:#EEF4EA">
+   <div style="height:120px;background:#F7F7F7;border-bottom:1px solid #ddd;display:flex;align-items:flex-end;justify-content:center;padding-bottom:16px">
+    <div style="width:330px;height:46px;border-radius:14px;background:#E6E6E9;display:flex;align-items:center;justify-content:center;font-size:22px;color:#333">🔒 sarqytapp.com</div></div>
+   <div style="padding:34px 30px 0;text-align:center"><img src="assets/icon.png" style="position:static;width:96px;height:96px;border-radius:22px">
+    <div style="font-size:52px;font-weight:800;color:#2F7D57;margin-top:10px">Sarqyt App</div>
+    <div id="slog" style="font-size:25px;line-height:1.35;color:#24453A;margin-top:18px;font-weight:600">Сюрприз-боксы из кафе, пекарен и ресторанов Казахстана со скидкой <span style="background:#F28C38;color:#fff;border-radius:8px;padding:0 8px">до 70%</span></div></div>
+   <img src="assets/bag.jpg" style="position:absolute;left:0;bottom:0;top:auto;height:auto;width:100%"></div>`;
+},update(sc,t,d){
+  const b=seg(t,.5,1.0);sc.bulb.setAttribute('opacity',b*(1-seg(t,4,4.5)));sc.bulb.setAttribute('transform',`translate(510,380) scale(${lerp(.4,1,back(b))})`);
+  if(t>.6)sc.bm.setAttribute('d','M-4,-196 Q10,-180 24,-196');
+  const m=SCN.bench.marks.site;const p=eo(seg(t,m-.6,m+.4));show(sc.ph.el,p,(1-p)*500,0,1);
+}};
+SC.how={init(sc){
+  sc.el.style.background='#FFF7EA';
+  el('div',{class:'abs',style:'left:0;right:0;top:70px;text-align:center;font-size:66px;font-weight:800;color:#0F6B4F',html:'Как это работает'},sc.el);
+  const icons=[
+   `<svg width="200" height="160" viewBox="0 0 200 160" style="position:static">${croissant(70,100,1.3)}<circle cx="150" cy="60" r="38" fill="#fff" stroke="#17322A" stroke-width="7"/><path d="M150,38 v22 h16" stroke="#17322A" stroke-width="7" fill="none" stroke-linecap="round"/></svg>`,
+   `<svg width="200" height="160" viewBox="0 0 200 160" style="position:static"><rect x="30" y="60" width="140" height="90" rx="10" fill="#C98E50"/><rect x="22" y="44" width="156" height="30" rx="8" fill="#B07A40"/><rect x="92" y="44" width="16" height="106" fill="#0F6B4F"/><rect x="110" y="8" width="84" height="44" rx="22" fill="#E5484D"/><text x="152" y="39" text-anchor="middle" font-size="26" font-weight="800" fill="#fff">−70%</text></svg>`,
+   `<svg width="200" height="160" viewBox="0 0 200 160" style="position:static"><rect x="60" y="6" width="80" height="150" rx="16" fill="#17322A"/><rect x="68" y="18" width="64" height="126" rx="8" fill="#BDEBD3"/><circle cx="100" cy="80" r="24" fill="#1E8F63"/><path d="M89,80 l8,8 l15,-16" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round"/></svg>`,
+   `<svg width="200" height="160" viewBox="0 0 200 160" style="position:static"><rect x="40" y="10" width="120" height="120" rx="12" fill="#fff" stroke="#17322A" stroke-width="5"/>${qrSVG(52,22,96)}</svg>`];
+  const labels=['Остаётся еда','Бокс в приложении','Бронь и оплата','QR и выдача'];
+  const descr=['Свежая еда, которую не успели продать за день','Заведение выставляет сюрприз-бокс со скидкой до 70%','Выбираете бокс рядом и платите в приложении','Показываете QR-код и забираете бокс'];
+  sc.cards=labels.map((l,i)=>el('div',{class:'card',style:`left:${110+i*435}px;top:220px;width:400px;height:510px;padding:36px 30px;text-align:center`,
+    html:`<div style="width:64px;height:64px;border-radius:50%;background:#0F6B4F;color:#fff;font-size:34px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto">${i+1}</div>
+    <div style="margin:22px auto 0;width:200px;height:160px">${icons[i]}</div><div style="font-size:36px;font-weight:800;margin-top:18px;color:#0F6B4F">${l}</div>
+    <div style="font-size:26px;line-height:1.35;margin-top:14px;color:#3d5a50">${descr[i]}</div>`},sc.el));
+  const w=['Покупатель платит меньше','Заведение зарабатывает на списании','Еда не попадает в мусор'];
+  sc.wins=w.map((x,i)=>el('div',{class:'abs',style:`left:${150+i*560}px;top:770px;width:520px;padding:20px 26px;border-radius:20px;background:#0F6B4F;color:#fff;font-size:30px;font-weight:700;display:flex;gap:16px;align-items:center`,
+    html:`<span style="flex:none;width:44px;height:44px;border-radius:50%;background:#BDEBD3;color:#0F6B4F;display:flex;align-items:center;justify-content:center;font-size:28px">✓</span>${x}`},sc.el));
+},update(sc,t,d){const M=SCN.how.marks;const ks=['s1','s2','s3','s4'];
+  sc.cards.forEach((c,i)=>{const a=M[ks[i]],nx=i<3?M[ks[i+1]]:M.win;pop(c,seg(t,a-.3,a+.4),60);const act=t>=a-.3&&t<nx-.2;
+    c.style.outline=act?'6px solid #1E8F63':'none';c.style.transform+=act?' translateY(-12px)':'';});
+  sc.wins.forEach((w,i)=>pop(w,seg(t,M.win+i*1.1-.2,M.win+i*1.1+.4),30));
+}};
+function phoneScene(name,clip,n,opts){return{init(sc){sc.p=greenPanel(sc,opts);sc.ph=makePhone(sc.el,{h:960,x:1150,y:60});if(opts.extra)opts.extra(sc);},
+  update(sc,t,d){pop(sc.p.k,seg(t,.1,.6));pop(sc.p.t,seg(t,.25,.8));pop(sc.p.s,seg(t,.45,1.0));
+    const pe=eo(seg(t,0,.8));sc.ph.el.style.transform=`translateY(${(1-pe)*300}px) scale(${lerp(.96,1.02,seg(t,0,d))})`;sc.ph.el.style.opacity=pe;
+    const f=opts.custom?opts.custom(sc,t,d):playClip(sc.ph,clip,n,t,d,{start:.4});
+    sc.p.cs.forEach((c,i)=>c.classList.toggle('on',opts.chipOn?opts.chipOn(i,f,t,d):false));}};}
+SC.download=phoneScene('download','download',210,{kicker:'Шаг 1',title:'Скачивание',sub:'Sarqyt в App Store.<br>Установка — меньше минуты.',
+  chips:['Находит в магазине','Открывает приложение','Данные под защитой'],chipOn:(i,f)=>f>=[0,60,105][i]});
+SC.register=phoneScene('register','register',630,{kicker:'Шаг 2',title:'Регистрация по почте',sub:'Код из письма вместо пароля.<br>Без длинных анкет.',
+  chips:['Вводит e-mail','Получает код в письме','Входит в приложение'],chipOn:(i,f)=>f>=[110,450,500][i]});
+SC.price=phoneScene('price','orders',48,{kicker:'Шаг 3',title:'Бокс рядом',sub:'',extra(sc){
+   sc.p.s.innerHTML=`<div style="display:flex;gap:26px;margin-top:10px">
+    <div id="c1" style="flex:1;background:rgba(255,255,255,.1);border-radius:24px;padding:26px"><div style="font-size:28px;color:#E6F6EE">Круассан + кофе</div><div style="font-size:60px;font-weight:800;color:#FFB4B6;margin-top:8px">3 790 ₸</div></div>
+    <div id="c2" style="flex:1;background:#fff;border-radius:24px;padding:26px"><div style="font-size:28px;color:#3d5a50">Бокс пончиков</div><div style="font-size:60px;font-weight:800;color:#0F6B4F;margin-top:8px">2 013 ₸</div><div style="font-size:28px;color:#8aa39a;text-decoration:line-through">2 550 ₸</div></div></div>
+    <div id="c3" style="margin-top:30px;display:inline-block;background:#F28C38;color:#fff;border-radius:999px;padding:16px 34px;font-size:44px;font-weight:800">−1 777 ₸ дешевле</div>`;},
+  custom(sc,t,d){const M=SCN.price.marks;const c1=q(sc.el,'#c1'),c2=q(sc.el,'#c2'),c3=q(sc.el,'#c3');pop(c1,seg(t,.8,1.4));pop(c2,seg(t,M.box,M.box+.6));
+    const k=seg(t,M.cmp,M.cmp+.5);c3.style.opacity=k;c3.style.transform=`scale(${lerp(.6,1,back(k))})`;return playClip(sc.ph,'orders',48,t,d,{start:.4,minSpeed:1,maxSpeed:1});}});
+SC.pay=phoneScene('pay','qr',99,{kicker:'Шаг 4',title:'Оплата и QR-код',sub:'Всё для выдачи — сразу после оплаты',chips:['Адрес заведения','Время выдачи','QR-код и код получения'],
+  extra(sc){sc.mock=el('div',{style:'position:absolute;inset:0;background:#F3F6F4;z-index:2',html:`
+    <div style="height:220px;background:linear-gradient(160deg,#1F8A62,#0E5A43);color:#fff;padding:90px 34px 0;font-size:44px;font-weight:800">Оплата</div>
+    <div style="margin:30px 26px;background:#fff;border-radius:26px;padding:28px;box-shadow:0 6px 20px rgba(0,0,0,.06)"><div style="font-size:24px;color:#6b8279">Ваш заказ</div>
+     <div style="font-size:36px;font-weight:800;margin-top:8px">Бокс пончиков</div><div style="display:flex;gap:16px;align-items:baseline;margin-top:14px"><span style="font-size:44px;font-weight:800;color:#0F6B4F">2 013 ₸</span><span style="font-size:26px;color:#9bb0a8;text-decoration:line-through">2 550 ₸</span></div></div>
+    <div style="margin:0 26px;background:#fff;border-radius:26px;padding:26px;font-size:28px;display:flex;justify-content:space-between"><span>Способ оплаты</span><b>Карта</b></div>
+    <div id="btn" style="position:absolute;left:26px;right:26px;bottom:90px;height:96px;border-radius:24px;background:#0F6B4F;color:#fff;font-size:34px;font-weight:800;display:flex;align-items:center;justify-content:center">Оплатить 2 013 ₸</div>
+    <div id="tap" style="position:absolute;left:50%;bottom:110px;width:70px;height:70px;margin-left:-35px;border-radius:50%;background:rgba(255,255,255,.6);border:3px solid rgba(0,0,0,.25);opacity:0"></div>
+    <div id="ok" style="position:absolute;inset:0;background:rgba(15,107,79,.96);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0">
+     <div style="width:170px;height:170px;border-radius:50%;background:#fff;color:#0F6B4F;font-size:110px;display:flex;align-items:center;justify-content:center;font-weight:800">✓</div><div style="font-size:48px;font-weight:800;margin-top:30px">Оплачено</div></div>`},sc.ph.scr);},
+  custom(sc,t,d){const a=SCN.pay.marks.after;const tp=seg(t,1.2,1.6);const tap=q(sc.mock,'#tap');tap.style.opacity=tp*(1-seg(t,1.6,1.9));tap.style.transform=`scale(${lerp(.6,1.2,tp)})`;
+    const ok=seg(t,1.7,2.1);q(sc.mock,'#ok').style.opacity=ok;q(sc.mock,'#ok').style.transform=`scale(${lerp(.9,1,eo(ok))})`;
+    sc.mock.style.opacity=1-seg(t,a-.2,a+.3);return playClip(sc.ph,'qr',99,t,d,{start:a-.2,minSpeed:.5});},
+  chipOn:(i,f,t)=>t>=SCN.pay.marks.after+[.2,1.2,2.4][i]});
+SC.map=phoneScene('map','map',201,{kicker:'Шаг 5',title:'Маршрут',sub:'Одно нажатие — и путь до заведения на карте',chips:[]});
+SC.pickup={init(sc){
+  let streets='';for(let i=0;i<9;i++)streets+=`<rect x="${i*240-40}" y="0" width="46" height="${H}" fill="#fff"/>`;for(let j=0;j<6;j++)streets+=`<rect x="0" y="${j*210-30}" width="${W}" height="46" fill="#fff"/>`;
+  const s=svgEl(sc.el,W,H,`<g id="mapv"><rect width="${W}" height="${H}" fill="#E8EFE6"/>${streets}<rect x="250" y="20" width="420" height="150" rx="10" fill="#BFE1B8"/><rect x="1210" y="650" width="380" height="140" rx="10" fill="#BFE1B8"/>
+    <path id="route" d="M300,880 L300,610 L780,610 L780,400 L1460,400 L1460,240" fill="none" stroke="#1E8F63" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2200" stroke-dashoffset="2200"/>
+    <g transform="translate(1460,210)"><path d="M0,30 C-50,-20 -40,-80 0,-80 C40,-80 50,-20 0,30Z" fill="#E5484D"/><circle cy="-46" r="16" fill="#fff"/></g>
+    <g transform="translate(1460,120)"><rect x="-90" y="-46" width="180" height="56" rx="28" fill="#0F6B4F"/><text y="-8" text-anchor="middle" font-size="30" font-weight="800" fill="#fff">КАФЕ</text></g>
+    <g id="me"><circle r="30" fill="#2B6BE0" stroke="#fff" stroke-width="8"/></g>
+    <g transform="translate(980,330)"><rect x="-90" y="-36" width="180" height="60" rx="30" fill="#fff" stroke="#1E8F63" stroke-width="4"/><text y="6" text-anchor="middle" font-size="32" font-weight="800" fill="#0F6B4F">5 мин</text></g></g>
+   <g id="shop" opacity="0"><rect width="${W}" height="${H}" fill="#F6EBDC"/><rect x="0" y="0" width="${W}" height="120" fill="#0F6B4F"/>
+    <path d="M0,120 h${W} v30 ${[...Array(16)].map(()=> 'q-60,30 -120,0').join(' ')}Z" fill="#F28C38" transform="translate(${W},0) scale(-1,1)"/>
+    <rect x="1000" y="250" width="700" height="260" rx="14" fill="#CBE7F1"/>${croissant(1120,450,1)}${croissant(1260,440,.9)}${donut(1420,445,.9)}${donut(1560,450,.85,'#8BD3B0')}
+    <g id="staff" transform="translate(1350,700)"><rect x="-56" y="-180" width="112" height="190" rx="34" fill="#fff"/><rect x="-46" y="-150" width="92" height="160" rx="12" fill="#0F6B4F"/>
+      <circle cy="-226" r="46" fill="#C98E64"/><path d="M-48,-232 Q-40,-282 0,-280 Q42,-282 48,-232 Q24,-256 0,-252 Q-24,-256 -48,-232Z" fill="#3A2A22"/><circle cx="-16" cy="-228" r="5" fill="#2A1E1A"/><circle cx="16" cy="-228" r="5" fill="#2A1E1A"/><path d="M-14,-206 Q0,-194 14,-206" stroke="#7A3E2A" stroke-width="5" fill="none"/>
+      <g id="scanner"><rect x="-150" y="-120" width="110" height="40" rx="12" fill="#333"/><rect x="-120" y="-90" width="26" height="60" rx="8" fill="#333"/><path id="beam" d="M-150,-100 L-330,-170 L-330,-30Z" fill="#E5484D" opacity="0"/></g></g>
+    <rect x="0" y="720" width="${W}" height="360" fill="#B48C68"/><rect x="0" y="720" width="${W}" height="26" fill="#8B5E3C"/>
+    <g id="box"><rect x="-90" y="-80" width="180" height="110" rx="10" fill="#C98E50"/><rect x="-100" y="-96" width="200" height="34" rx="8" fill="#B07A40"/><rect x="-10" y="-96" width="20" height="126" fill="#0F6B4F"/></g>
+    ${armanSVG('arm4')}
+    <g id="pq"><rect x="-60" y="-110" width="120" height="220" rx="20" fill="#17322A"/><rect x="-50" y="-96" width="100" height="192" rx="12" fill="#fff"/>${qrSVG(-40,-40,80)}</g>
+    <g id="done" opacity="0"><rect x="560" y="140" width="520" height="110" rx="55" fill="#1E8F63"/><circle cx="625" cy="195" r="34" fill="#fff"/><path d="M608,195 l12,12 l22,-24" stroke="#1E8F63" stroke-width="8" fill="none" stroke-linecap="round"/><text x="880" y="212" text-anchor="middle" font-size="46" font-weight="800" fill="#fff">Бокс выдан</text></g></g>`);
+  Object.assign(sc,{a:arman(s,'arm4'),route:q(s,'#route'),me:q(s,'#me'),shop:q(s,'#shop'),mapv:q(s,'#mapv'),beam:q(s,'#beam'),box:q(s,'#box'),pq:q(s,'#pq'),done:q(s,'#done')});
+  sc.path=sc.route;sc.len=sc.route.getTotalLength();sc.route.setAttribute('stroke-dasharray',sc.len);
+},update(sc,t,d){const M=SCN.pickup.marks;const r=eio(seg(t,.2,M.show-.5));sc.route.setAttribute('stroke-dashoffset',sc.len*(1-r));
+  const pt=sc.route.getPointAtLength(sc.len*r);sc.me.setAttribute('transform',`translate(${pt.x},${pt.y})`);
+  const sw=seg(t,M.show-.5,M.show);sc.shop.setAttribute('opacity',sw);sc.mapv.setAttribute('transform',`translate(${W/2},${H/2}) scale(${1+sw*.3}) translate(${-W/2},${-H/2})`);
+  sc.a.pose({x:560,y:1040,s:1.3,mood:t>M.hand?'smile':'neutral',arm:-60*eo(seg(t,M.show,M.show+.5))});
+  const pu=eo(seg(t,M.show,M.show+.5));sc.pq.setAttribute('transform',`translate(${lerp(640,800,pu)},${lerp(760,560,pu)}) rotate(${lerp(20,-8,pu)})`);
+  const sb=seg(t,M.scan,M.scan+.25)*(1-seg(t,M.scan+.9,M.scan+1.2));sc.beam.setAttribute('opacity',sb*.55);
+  const dn=seg(t,M.hand-.3,M.hand+.2);sc.done.setAttribute('opacity',dn);
+  const bx=eio(seg(t,M.hand,M.hand+1.2));sc.box.setAttribute('transform',`translate(${lerp(1200,700,bx)},${lerp(700,820,bx)})`);
+}};
+SC.win={init(sc){sc.el.style.background='#FFF7EA';
+  const s=svgEl(sc.el,W,H,`<circle cx="560" cy="560" r="380" fill="#BDEBD3" opacity=".6"/>${armanSVG('arm5')}
+   <g id="bx" transform="translate(560,820)"><rect x="-150" y="-90" width="300" height="160" rx="14" fill="#C98E50"/><rect x="-14" y="-90" width="28" height="160" fill="#0F6B4F"/>
+    <g id="dn">${donut(-80,-100,.95)}${donut(0,-130,1,'#8BD3B0')}${donut(80,-100,.95,'#F6D36B')}${croissant(-40,-150,.8)}</g>
+    <g id="lid"><rect x="-165" y="-118" width="330" height="40" rx="10" fill="#B07A40"/><rect x="-14" y="-118" width="28" height="40" fill="#0F6B4F"/></g>
+    <rect x="-150" y="-80" width="300" height="150" rx="14" fill="#C98E50"/><rect x="-14" y="-80" width="28" height="150" fill="#0F6B4F"/>
+    <image href="assets/icon.png" x="60" y="-40" width="70" height="70"/></g>`);
+  sc.a=arman(s,'arm5');sc.lid=q(s,'#lid');sc.dn=q(s,'#dn');
+  sc.top=el('div',{class:'abs',style:'left:1010px;top:150px;font-size:56px;font-weight:800;color:#0F6B4F',html:'2 013 ₸ <span style="font-size:40px;color:#9bb0a8;text-decoration:line-through;font-weight:700">3 790 ₸</span>'},sc.el);
+  const items=[['Арман','поел и сэкономил'],['Кафе','получило деньги за списание'],['Город','меньше еды в мусоре']];
+  sc.items=items.map((x,i)=>el('div',{class:'card',style:`left:1010px;top:${300+i*170}px;width:800px;padding:30px 34px;display:flex;align-items:center;gap:26px`,
+   html:`<span style="flex:none;width:72px;height:72px;border-radius:50%;background:#1E8F63;color:#fff;font-size:44px;display:flex;align-items:center;justify-content:center;font-weight:800">✓</span><div><div style="font-size:40px;font-weight:800">${x[0]}</div><div style="font-size:30px;color:#3d5a50;margin-top:4px">${x[1]}</div></div>`},sc.el));
+  sc.all=el('div',{class:'abs',style:'left:1010px;top:830px;font-size:46px;font-weight:800;color:#F28C38',html:'Выигрывают все трое'},sc.el);
+},update(sc,t,d){const M=SCN.win.marks;const o=eo(seg(t,.4,1.2));
+  sc.lid.setAttribute('transform',`translate(${o*170},${-o*160}) rotate(${o*35})`);sc.dn.setAttribute('transform',`translate(0,${-o*90})`);sc.dn.setAttribute('opacity',o);
+  sc.a.pose({x:560,y:960,s:1.2,mood:t>.9?(t<2.4?'open':'smile'):'neutral',brow:t>.9?-4:0});
+  pop(sc.top,seg(t,M.a-.2,M.a+.4));pop(sc.items[0],seg(t,M.a,M.a+.5));pop(sc.items[1],seg(t,M.c,M.c+.5));pop(sc.items[2],seg(t,M.g,M.g+.5));
+  const k=seg(t,M.all,M.all+.4);sc.all.style.opacity=k;sc.all.style.transform=`scale(${lerp(.7,1,back(k))})`;
+}};
+SC.metrics={init(sc){
+  const s=svgEl(sc.el,W,H,`<g id="c">${cityBG('m')}</g><rect width="${W}" height="${H}" fill="#0B3B2D" opacity=".62"/>`);sc.c=q(s,'#c');
+  sc.title=el('div',{class:'abs',style:'left:0;right:0;top:90px;text-align:center;color:#fff;font-size:64px;font-weight:800',html:'Первая неделя продаж'},sc.el);
+  const st=[[11,'заведений подключено','10 оплатили взносы'],[5000,'установок',''],[500,'активных пользователей',''],[190,'проданных боксов',''],[36,'покупателей вернулись','повторная покупка','%']];
+  sc.st=st.map((x,i)=>{const e=el('div',{class:'card',style:`left:${(i<3?140+i*560:420+(i-3)*560)}px;top:${i<3?250:600}px;width:520px;height:300px;padding:34px;text-align:center`,
+    html:`<div class="n" style="font-size:110px;font-weight:900;color:#0F6B4F;line-height:1.05">0</div><div style="font-size:34px;font-weight:700;margin-top:6px">${x[1]}</div><div style="font-size:26px;color:#5e786f;margin-top:6px">${x[2]}</div>`},sc.el);
+    e._v=x[0];e._s=x[3]||'';return e;});
+},update(sc,t,d){const M=SCN.metrics.marks;sc.c.setAttribute('transform',`translate(${W/2},${H/2}) scale(${lerp(1,1.08,t/d)}) translate(${-W/2},${-H/2})`);
+  pop(sc.title,seg(t,M.week-.6,M.week));const ks=['m1','m2','m3','m4','m5'];
+  sc.st.forEach((e,i)=>{const a=M[ks[i]];pop(e,seg(t,a-.2,a+.4));q(e,'.n').textContent=fmt(e._v*eo(seg(t,a-.2,a+1.0)))+e._s;});
+}};
+SC.final={init(sc){sc.el.classList.add('green-bg');el('div',{class:'ornament'},sc.el);
+  sc.rev=el('div',{class:'abs',style:'left:0;right:0;top:330px;text-align:center;color:#fff',html:`<div class="kicker" style="font-size:32px">Модель выручки</div>
+   <div style="margin-top:40px;display:flex;justify-content:center;align-items:center;gap:36px;font-size:58px;font-weight:800">
+   <span style="background:#fff;color:#0F6B4F;border-radius:26px;padding:26px 44px">+15% к цене бокса</span><span>+</span><span style="background:#F28C38;border-radius:26px;padding:26px 44px">абонемент заведения</span></div>`},sc.el);
+  sc.end=el('div',{class:'abs',style:'left:0;right:0;top:170px;text-align:center;color:#fff',html:`<img src="assets/icon.png" style="width:220px;height:220px;border-radius:50px;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+   <div style="font-size:110px;font-weight:900;margin-top:24px;letter-spacing:1px">Sarqyt</div><div style="font-size:44px;font-weight:600;color:#BDEBD3;margin-top:6px">Sarqytapp.com</div>
+   <div style="display:inline-block;margin-top:46px;background:#fff;color:#0F6B4F;border-radius:999px;padding:22px 52px;font-size:52px;font-weight:800">Раунд pre-seed: $100 000</div>`},sc.el);
+},update(sc,t,d){const r=SCN.final.marks.raise;pop(sc.rev,seg(t,.2,.8));sc.rev.style.opacity=Math.min(sc.rev.style.opacity,1-seg(t,r-.4,r));
+  const e=seg(t,r-.2,r+.6);sc.end.style.opacity=e;sc.end.style.transform=`scale(${lerp(.9,1,eo(e))})`;}};
+
+// ---------- runtime ----------
+const SCN={};const LEFT_SUB=new Set(['download','register','price','pay','map']);
+TL.scenes.forEach((s,i)=>{SCN[s.id]=s;const e=el('div',{class:'scene',style:`z-index:${i+1}`},stage);s.el=e;SC[s.id].init(s);});
+const subEl=document.getElementById('sub');
+window.render=async function(t){PEND=[];
+  TL.scenes.forEach((s,i)=>{const lt=t-s.start;const vis=lt>=0&&lt<s.dur+.5;s.el.style.display=vis?'block':'none';if(!vis)return;
+    s.el.style.opacity=i===0?1-seg(t,TL.total-1,TL.total):seg(lt,0,.5);if(i===TL.scenes.length-1)s.el.style.opacity=seg(lt,0,.5)*(1-seg(t,TL.total-.8,TL.total));
+    SC[s.id].update(s,Math.min(lt,s.dur),s.dur);});
+  const cur=TL.scenes.find(s=>t>=s.start&&t<s.start+s.dur);const sb=TL.subs.find(x=>t>=x.a&&t<x.b);
+  subEl.textContent=sb?sb.text:'';subEl.className=cur&&LEFT_SUB.has(cur.id)?'left':'';
+  await Promise.all(PEND);return true;};
+</script></body></html>
