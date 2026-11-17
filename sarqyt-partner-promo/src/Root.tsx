@@ -248,7 +248,7 @@ const S5Solution: React.FC = () => {
 const Banner: React.FC<{f: number; at: number; top: number}> = ({f, at, top}) => {
   const k = sp(f, at, 12, 160), out = lin(f, at + 50, at + 60);
   return (
-    <div style={{position: 'absolute', left: 90, width: 900, top: top + (1 - k) * -140 - out * 140, opacity: Math.min(lin(f, at, at + 4), 1 - out),
+    <div style={{position: 'absolute', left: 90 + (1 - k) * 1100 - out * 1100, width: 900, top: top + 10, opacity: Math.min(lin(f, at, at + 4), 1 - out),
       background: '#fff', borderRadius: 34, padding: '24px 30px', display: 'flex', alignItems: 'center', gap: 24, boxShadow: '0 20px 50px rgba(0,0,0,.25)', fontFamily: 'Rubik'}}>
       <div style={{width: 96, height: 96, borderRadius: 24, background: C.mint, display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: `rotate(${Math.sin((f - at) * 0.9) * 14 * (1 - lin(f, at, at + 24))}deg)`}}><Bell s={1.1} /></div>
@@ -258,7 +258,7 @@ const Banner: React.FC<{f: number; at: number; top: number}> = ({f, at, top}) =>
 };
 const S6How: React.FC = () => {
   const f = useCurrentFrame();
-  const s1 = OV, s2 = OV + 96, s3 = OV + 192; // step starts (local frames)
+  const s1 = OV, s2 = OV + 86, s3 = OV + 172; // step starts (local frames)
   const step = f < s2 ? 0 : f < s3 ? 1 : 2;
   const caps = ['Выложите бокс\nза минуту', 'Покупатель оплачивает\nв приложении', 'Выдайте бокс\nпо QR-коду'];
   const st = [s1, s2, s3][step];
@@ -359,8 +359,8 @@ const S7Benefits: React.FC = () => {
     ['+', 'Новые клиенты', 'people'], ['+', 'Выручка с того, что раньше списывали', 'revenue'], ['−', 'Расходы на списание', 'trash'],
     ['+', 'Бесплатное продвижение: блогеры снимают о вас ролики', 'camera'], ['', 'Деньги на карту в тот же день', 'card'],
   ];
-  const starts = [OV + 6, OV + 46, OV + 86, OV + 126, OV + 170];
-  const queue = lin(f, OV + 40, OV + 200);
+  const starts = [12, 58, 123, 178, 284]; // synced to the voiceover sentence starts
+  const queue = lin(f, OV + 40, OV + 300);
   return (
     <Scene kind="circle" bg={C.cream}>
       <svg width={W} height={H} style={{position: 'absolute'}}>
@@ -422,9 +422,9 @@ const S8CTA: React.FC = () => {
 };
 
 // ---------- timeline ----------
-export const SCENES: [React.FC, number][] = [[S1Hook, 120], [S2Trash, 180], [S3Sign, 150], [S4Fact, 90], [S5Solution, 120], [S6How, 300], [S7Benefits, 300], [S8CTA, 180]];
+export const SCENES: [React.FC, number][] = [[S1Hook, 120], [S2Trash, 150], [S3Sign, 135], [S4Fact, 150], [S5Solution, 105], [S6How, 270], [S7Benefits, 360], [S8CTA, 210]];
 export const TOTAL = SCENES.reduce((a, [, d]) => a + d, 0);
-export const NOTIFY_FRAMES = (() => { const s6 = SCENES.slice(0, 5).reduce((a, [, d]) => a + d, 0) - OV; return [s6 + OV + 96 + 36 + 16, s6 + OV + 192 + 62]; })();
+export const NOTIFY_FRAMES = (() => { const s6 = SCENES.slice(0, 5).reduce((a, [, d]) => a + d, 0) - OV; return [s6 + OV + 86 + 36 + 16, s6 + OV + 172 + 62]; })();
 
 const Promo: React.FC = () => {
   let t = 0;
